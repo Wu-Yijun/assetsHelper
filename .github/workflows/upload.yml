@@ -62,14 +62,14 @@ jobs:
           echo "dest_path=$DEST_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Checkout source repository (the calling repo) If needed
-        if: ${{ inputs.from_repo == 'true' }}
+        if: ${{ inputs.from_repo == true }}
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.repository.full_name }}
           path: source_repo
 
       - name: Extract artifact If not from repo
-        if: ${{ inputs.from_repo == 'false' }}
+        if: ${{ inputs.from_repo == false }}
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.source }}
@@ -85,6 +85,7 @@ jobs:
 
       - name: Sync files to assets
         run: |
+          tree .
           target_dir="assets_repo/${{ steps.path.outputs.dest_path }}"
           source_dir="source_repo/${{ inputs.source }}"
           echo "Syncing from ${source_dir} to ${target_dir}"
