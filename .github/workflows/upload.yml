@@ -1,0 +1,103 @@
+# assetsHelper/.github/workflows/upload.yml
+
+name: Reusable Asset Uploader
+
+on:
+  workflow_call:
+    inputs:
+      source:
+        description: |
+          (from_repo=false)Source artifact name or
+          (from_repo=true)The directory from the source repository to sync
+        required: true
+        type: string
+      from_repo:
+        description: 'Whether to use the source from the calling repo (true/false)'
+        required: false
+        default: false
+        type: boolean
+      type:
+        description: 'Asset type (public, private, encrypt)'
+        required: false
+        default: public
+        type: string
+      destination:
+        description: 'The target subdirectory in assets repo (e.g., {type}/<repo_name>/{destination})'
+        required: false
+        default: ./
+        type: string
+      
+jobs:
+  sync-to-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate destination path and type
+        run: |
+          DEST="${{ inputs.destination }}"
+          TYPE="${{ inputs.type }}"
+
+          # Validate type
+          if [[ "$TYPE" != "public" && "$TYPE" != "private" && "$TYPE" != "encrypt" ]]; then
+            echo "❌ Error: type must be one of 'public', 'private', or 'encrypt'"
+            exit 1
+          fi
+
+          # Check for path traversal
+          if [[ "$DEST" == *".."* ]]; then
+            echo "❌ Error: destination must not contain '..'"
+            exit 1
+          fi
+
+          echo "✅ Destination and type are valid"
+
+      - name: Compute full destination path
+        id: path
+        run: |
+          DEST_PATH="${{ inputs.type }}/${{ github.event.repository.name }}/${{ inputs.destination }}"
+          DEST_PATH="${{ inputs.type }}/${{ github.event.repository.name }}/${{ inputs.destination }}"
+          echo "dest_path=$DEST_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source repository (the calling repo) If needed
+        if: ${{ inputs.from_repo == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.repository.full_name }}
+          path: source_repo
+
+      - name: Extract artifact If not from repo
+        if: ${{ inputs.from_repo == 'false' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.source }}
+          repository: ${{ github.event.repository.full_name }}
+          path: source_repo
+
+      - name: Checkout assets repository
+        uses: actions/checkout@v4
+        with:
+          repository: Wu-Yijun/assets # TODO: 替换为你的用户名
+          token: ${{ secrets.ASSETS_DEPLOY_ACCESS }}
+          path: 'assets_repo'
+
+      - name: Sync files to assets
+        run: |
+          target_dir="assets_repo/${{ steps.path.outputs.dest_path }}"
+          source_dir="source_repo/${{ inputs.source }}"
+          echo "Syncing from ${source_dir} to ${target_dir}"
+          mkdir -p "${target_dir}"
+          rsync -av --delete "${source_dir}/" "${target_dir}/"
+
+      - name: Commit and push to assets
+        run: |
+          cd assets_repo
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync from ${{ github.repository }}: ${{ steps.path.outputs.dest_path }}"
+            git push
+          fi
+
+
