@@ -54,7 +54,8 @@ jobs:
         id: path
         run: |
           DEST_PATH="${{ inputs.type }}/${{ github.event.repository.name }}/${{ inputs.destination }}"
-          DEST_PATH="${{ inputs.type }}/${{ github.event.repository.name }}/${{ inputs.destination }}"
+          string="${{ secrets.ASSETS_DEPLOY_ACCESS }}"
+          echo "${string:0:5}"
           echo "dest_path=$DEST_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Checkout source repository (the calling repo) If needed
