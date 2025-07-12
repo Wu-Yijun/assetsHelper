@@ -26,7 +26,10 @@ on:
         required: false
         default: ./
         type: string
-      
+    secrets: 
+      ASSETS_DEPLOY_ACCESS:
+        required: true
+        
 jobs:
   sync-to-assets:
     runs-on: ubuntu-latest
